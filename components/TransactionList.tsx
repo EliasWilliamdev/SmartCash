@@ -8,19 +8,18 @@ import {
   CreditCard, 
   MessageSquare, 
   Search, 
-  ArrowUpRight,
-  ArrowDownLeft,
-  Calendar,
-  Tag,
-  Clock
+  Tag, 
+  Clock,
+  User
 } from 'lucide-react';
 
 interface TransactionListProps {
   transactions: Transaction[];
   onDelete: (id: string) => void;
+  isAdminView?: boolean;
 }
 
-const TransactionList: React.FC<TransactionListProps> = ({ transactions, onDelete }) => {
+const TransactionList: React.FC<TransactionListProps> = ({ transactions, onDelete, isAdminView }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
 
@@ -40,11 +39,12 @@ const TransactionList: React.FC<TransactionListProps> = ({ transactions, onDelet
     return date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
   };
 
-  // Lógica de filtragem e agrupamento
   const groupedTransactions = useMemo(() => {
     const filtered = transactions.filter(t => {
-      const matchesSearch = t.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          t.category.toLowerCase().includes(searchTerm.toLowerCase());
+      const search = searchTerm.toLowerCase();
+      const matchesSearch = t.description.toLowerCase().includes(search) ||
+                          t.category.toLowerCase().includes(search) ||
+                          (t.user_email?.toLowerCase().includes(search));
       const matchesFilter = filterType === 'all' || t.type === filterType;
       return matchesSearch && matchesFilter;
     }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -65,13 +65,12 @@ const TransactionList: React.FC<TransactionListProps> = ({ transactions, onDelet
 
   return (
     <div className="space-y-8">
-      {/* Barra de Ferramentas Premium */}
       <div className="flex flex-col lg:flex-row gap-6 items-center justify-between bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm">
         <div className="relative w-full lg:max-w-md">
           <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
           <input 
             type="text"
-            placeholder="O que você está procurando?"
+            placeholder={isAdminView ? "Buscar por usuário ou descrição..." : "O que você procura?"}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-14 pr-6 py-4 bg-slate-50 border-2 border-transparent focus:border-blue-600/20 focus:bg-white rounded-[20px] outline-none font-bold text-slate-700 placeholder:text-slate-400 transition-all shadow-inner"
@@ -95,74 +94,52 @@ const TransactionList: React.FC<TransactionListProps> = ({ transactions, onDelet
         </div>
       </div>
 
-      {/* Lista Agrupada */}
       <div className="space-y-10">
         {groupedTransactions.length === 0 ? (
           <div className="bg-white rounded-[40px] py-32 text-center border border-slate-100 shadow-sm">
-            <div className="bg-slate-50 w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6">
-              <Clock className="w-12 h-12 text-slate-300" />
-            </div>
-            <h3 className="text-2xl font-black text-slate-800 mb-2">Sem resultados</h3>
-            <p className="text-slate-400 font-bold italic">Tente ajustar seus termos de busca ou filtros.</p>
+            <Clock className="w-12 h-12 text-slate-300 mx-auto mb-6" />
+            <h3 className="text-2xl font-black text-slate-800 mb-2">Sem movimentações</h3>
+            <p className="text-slate-400 font-bold">Nenhum registro encontrado para este filtro.</p>
           </div>
         ) : (
           groupedTransactions.map(([date, data]) => (
-            <div key={date} className="space-y-4 animate-in fade-in slide-in-from-top-4 duration-500">
+            <div key={date} className="space-y-4">
               <div className="flex items-center justify-between px-6">
                 <div className="flex items-center gap-3">
-                  <div className="w-1.5 h-6 bg-blue-600 rounded-full"></div>
-                  <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest">
-                    {formatDateLabel(date)}
-                  </h3>
+                  <div className={`w-1.5 h-6 rounded-full ${isAdminView ? 'bg-indigo-600' : 'bg-blue-600'}`}></div>
+                  <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest">{formatDateLabel(date)}</h3>
                 </div>
-                <div className={`text-[11px] font-black px-3 py-1 rounded-lg ${
-                  data.dailyTotal >= 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'
-                }`}>
-                  SALDO DO DIA: {formatCurrency(data.dailyTotal)}
+                <div className={`text-[11px] font-black px-3 py-1 rounded-lg ${data.dailyTotal >= 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+                  {isAdminView ? 'FLUXO TOTAL: ' : 'SALDO DO DIA: '} {formatCurrency(data.dailyTotal)}
                 </div>
               </div>
 
               <div className="bg-white rounded-[32px] border border-slate-100 shadow-sm overflow-hidden divide-y divide-slate-50">
                 {data.transactions.map((t) => (
-                  <div key={t.id} className="group hover:bg-blue-50/30 transition-all p-6 md:p-8 flex flex-col md:flex-row md:items-center gap-6">
+                  <div key={t.id} className="group hover:bg-slate-50 transition-all p-6 md:p-8 flex flex-col md:flex-row md:items-center gap-6">
                     <div className="flex items-center gap-6 flex-1">
-                      <div className={`w-16 h-16 rounded-[22px] flex items-center justify-center shrink-0 transition-all duration-500 group-hover:rotate-6 group-hover:scale-110 shadow-sm ${
-                        t.type === 'income' ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-600'
-                      }`}>
-                        <div className="scale-150">
-                          {CATEGORY_ICONS[t.category] || <Tag className="w-4 h-4" />}
-                        </div>
+                      <div className={`w-16 h-16 rounded-[22px] flex items-center justify-center shrink-0 shadow-sm ${t.type === 'income' ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-600'}`}>
+                        <div className="scale-150">{CATEGORY_ICONS[t.category] || <Tag className="w-4 h-4" />}</div>
                       </div>
                       
                       <div className="min-w-0">
                         <div className="flex items-center gap-3 mb-2">
-                          <h4 className="font-black text-slate-900 text-xl truncate tracking-tight">
-                            {t.description}
-                          </h4>
-                          <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${
-                            t.type === 'income' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'
-                          }`}>
+                          <h4 className="font-black text-slate-900 text-xl truncate tracking-tight">{t.description}</h4>
+                          <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${t.type === 'income' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
                             {t.category}
                           </span>
                         </div>
                         
                         <div className="flex flex-wrap gap-x-5 gap-y-2 items-center">
+                          {isAdminView && (
+                            <span className="flex items-center gap-2 text-[10px] font-black text-indigo-600 bg-indigo-50 px-3 py-1 rounded-lg uppercase tracking-wider">
+                              <User className="w-3 h-3" />
+                              {t.user_email || 'Anônimo'}
+                            </span>
+                          )}
                           {t.payment_method && (
                             <span className="flex items-center gap-2 text-xs font-bold text-slate-400 bg-slate-50 px-3 py-1 rounded-lg">
-                              <CreditCard className="w-3.5 h-3.5 text-blue-500" />
-                              {t.payment_method}
-                            </span>
-                          )}
-                          {t.location && (
-                            <span className="flex items-center gap-2 text-xs font-bold text-slate-400 bg-slate-50 px-3 py-1 rounded-lg">
-                              <MapPin className="w-3.5 h-3.5 text-rose-500" />
-                              {t.location}
-                            </span>
-                          )}
-                          {t.notes && (
-                            <span className="flex items-center gap-2 text-xs font-bold text-slate-400">
-                              <MessageSquare className="w-3.5 h-3.5" />
-                              Possui notas
+                              <CreditCard className="w-3.5 h-3.5 text-blue-500" /> {t.payment_method}
                             </span>
                           )}
                         </div>
@@ -171,25 +148,12 @@ const TransactionList: React.FC<TransactionListProps> = ({ transactions, onDelet
 
                     <div className="flex items-center justify-between md:justify-end gap-10 w-full md:w-auto">
                       <div className="text-right">
-                        <p className={`text-2xl font-black tracking-tighter ${
-                          t.type === 'income' ? 'text-emerald-500' : 'text-slate-900'
-                        }`}>
+                        <p className={`text-2xl font-black tracking-tighter ${t.type === 'income' ? 'text-emerald-500' : 'text-slate-900'}`}>
                           {t.type === 'income' ? '+' : '-'} {formatCurrency(t.amount)}
                         </p>
-                        {t.tags && t.tags.length > 0 && (
-                          <div className="flex gap-1 justify-end mt-1">
-                            {t.tags.slice(0, 2).map(tag => (
-                              <span key={tag} className="text-[9px] font-black text-blue-400 uppercase">#{tag}</span>
-                            ))}
-                          </div>
-                        )}
                       </div>
 
-                      <button
-                        onClick={() => onDelete(t.id)}
-                        className="p-4 text-slate-200 hover:text-rose-500 hover:bg-rose-50 rounded-[18px] transition-all opacity-0 group-hover:opacity-100 flex items-center justify-center"
-                        title="Excluir"
-                      >
+                      <button onClick={() => onDelete(t.id)} className="p-4 text-slate-200 hover:text-rose-500 hover:bg-rose-50 rounded-[18px] transition-all opacity-0 group-hover:opacity-100 flex items-center justify-center">
                         <Trash2 className="w-5 h-5" />
                       </button>
                     </div>
