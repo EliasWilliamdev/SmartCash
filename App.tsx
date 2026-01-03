@@ -1,25 +1,25 @@
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { Transaction, FinancialStats } from './types';
-import StatsCard from './components/StatsCard';
-import TransactionList from './components/TransactionList';
-import AddTransactionPage from './components/AddTransactionPage';
-import VisualCharts from './components/VisualCharts';
-import Auth from './components/Auth';
+import { Transaction, FinancialStats } from './types.ts';
+import StatsCard from './components/StatsCard.tsx';
+import TransactionList from './components/TransactionList.tsx';
+import AddTransactionPage from './components/AddTransactionPage.tsx';
+import VisualCharts from './components/VisualCharts.tsx';
+import AIInsightsSection from './components/AIInsightsSection.tsx';
+import Auth from './components/Auth.tsx';
 import { 
   Wallet, 
   LayoutDashboard, 
   Loader2, 
   RefreshCw, 
   AlertTriangle, 
-  CheckCircle2, 
   PlusCircle, 
   Database,
   Plus,
   LogOut,
-  User
+  Sparkles
 } from 'lucide-react';
-import { supabase } from './lib/supabase';
+import { supabase } from './lib/supabase.ts';
 
 const App: React.FC = () => {
   const [session, setSession] = useState<any>(null);
@@ -55,8 +55,8 @@ const App: React.FC = () => {
       if (error) throw error;
       setTransactions(data as Transaction[] || []);
     } catch (error: any) {
-      console.error('Erro ao buscar transações:', error);
-      setConnectionError(error.message || 'Erro de conexão');
+      console.error('Erro ao buscar dados:', error);
+      if (isManual) setConnectionError('Não foi possível conectar ao banco. Verifique suas credenciais.');
     } finally {
       setLoading(false);
       setIsSyncing(false);
@@ -86,98 +86,75 @@ const App: React.FC = () => {
 
   const handleAddTransaction = async (newT: Omit<Transaction, 'id'>) => {
     if (!session) return;
-
-    const payload = {
-      description: newT.description,
-      amount: newT.amount,
-      date: newT.date,
-      category: newT.category,
-      type: newT.type,
-      notes: newT.notes || null,
-      location: newT.location || null,
-      payment_method: newT.payment_method || null,
-      tags: newT.tags && newT.tags.length > 0 ? newT.tags : null,
-      user_id: session.user.id
-    };
-
     const { data, error } = await supabase
       .from('transactions')
-      .insert([payload])
+      .insert([{ ...newT, user_id: session.user.id }])
       .select();
-
-    if (error) {
-      console.error("Erro Supabase:", error);
-      throw new Error(`${error.message}`);
-    }
-
-    if (data && data.length > 0) {
-      setTransactions(prev => [data[0] as Transaction, ...prev]);
-    }
+    if (error) throw error;
+    if (data) setTransactions(prev => [data[0] as Transaction, ...prev]);
   };
 
   const handleDeleteTransaction = async (id: string) => {
     const { error } = await supabase.from('transactions').delete().eq('id', id);
     if (error) {
-      alert("Erro ao excluir: " + error.message);
+      alert("Falha ao remover registro.");
       return;
     }
     setTransactions(prev => prev.filter(t => t.id !== id));
   };
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-  };
-
-  if (!session) {
-    return <Auth />;
-  }
+  if (!session) return <Auth />;
 
   return (
-    <div className="min-h-screen flex flex-col md:flex-row bg-[#f8fafc]">
-      {/* Sidebar Desktop */}
-      <aside className="hidden md:flex flex-col w-64 bg-white border-r border-slate-200 p-6 h-screen sticky top-0">
-        <div className="flex items-center gap-3 mb-12">
-          <div className="bg-blue-600 p-2.5 rounded-2xl text-white shadow-lg shadow-blue-100">
+    <div className="min-h-screen flex flex-col md:flex-row bg-[#f8fafc] text-slate-900">
+      {/* Sidebar Navigation */}
+      <aside className="hidden md:flex flex-col w-72 bg-white border-r border-slate-200 p-8 h-screen sticky top-0">
+        <div className="flex items-center gap-4 mb-16">
+          <div className="bg-blue-600 p-3 rounded-[20px] text-white shadow-xl shadow-blue-100">
             <Wallet className="w-6 h-6" />
           </div>
-          <h1 className="text-xl font-black text-slate-800 tracking-tighter">SmartCash</h1>
+          <h1 className="text-2xl font-black tracking-tighter">SmartCash</h1>
         </div>
 
-        <nav className="flex-1 space-y-2">
+        <nav className="flex-1 space-y-3">
           <button 
             onClick={() => setCurrentView('dashboard')}
-            className={`w-full flex items-center gap-3 px-5 py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all ${
-              currentView === 'dashboard' ? 'bg-blue-600 text-white shadow-xl shadow-blue-200' : 'text-slate-400 hover:bg-slate-50 hover:text-slate-600'
+            className={`w-full flex items-center justify-between px-6 py-5 rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all ${
+              currentView === 'dashboard' ? 'bg-slate-900 text-white shadow-2xl' : 'text-slate-400 hover:bg-slate-50 hover:text-slate-600'
             }`}
           >
-            <LayoutDashboard className="w-5 h-5" />
-            Dashboard
+            <div className="flex items-center gap-4">
+              <LayoutDashboard className="w-5 h-5" />
+              Resumo
+            </div>
           </button>
           <button 
             onClick={() => setCurrentView('add-transaction')}
-            className={`w-full flex items-center gap-3 px-5 py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all ${
-              currentView === 'add-transaction' ? 'bg-blue-600 text-white shadow-xl shadow-blue-200' : 'text-slate-400 hover:bg-slate-50 hover:text-slate-600'
+            className={`w-full flex items-center justify-between px-6 py-5 rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all ${
+              currentView === 'add-transaction' ? 'bg-slate-900 text-white shadow-2xl' : 'text-slate-400 hover:bg-slate-50 hover:text-slate-600'
             }`}
           >
-            <Plus className="w-5 h-5" />
-            Lançamento
+            <div className="flex items-center gap-4">
+              <Plus className="w-5 h-5" />
+              Lançamento
+            </div>
           </button>
         </nav>
 
-        <div className="mt-auto pt-6 border-t border-slate-100">
-          <div className="bg-slate-50 p-5 rounded-[32px] border border-slate-100">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-black">
+        <div className="mt-auto">
+          <div className="bg-blue-50/50 p-6 rounded-[32px] border border-blue-100">
+            <div className="flex items-center gap-4 mb-4">
+              <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-black text-sm">
                 {session.user.email?.[0].toUpperCase()}
               </div>
               <div className="overflow-hidden">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Conectado</p>
+                <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest">Ativo</p>
                 <p className="text-xs font-bold text-slate-700 truncate">{session.user.email}</p>
               </div>
             </div>
             <button 
-              onClick={handleLogout}
-              className="w-full flex items-center justify-center gap-2 py-3 bg-white border border-slate-200 text-rose-500 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-rose-50 hover:border-rose-100 transition-all shadow-sm"
+              onClick={() => supabase.auth.signOut()}
+              className="w-full flex items-center justify-center gap-3 py-3 bg-white border border-blue-100 text-rose-500 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-rose-50 transition-all shadow-sm"
             >
               <LogOut className="w-4 h-4" />
               Sair
@@ -186,92 +163,104 @@ const App: React.FC = () => {
         </div>
       </aside>
 
-      {/* Main Content */}
-      <main className="flex-1 overflow-y-auto">
+      {/* Main Dashboard Content */}
+      <main className="flex-1">
         {currentView === 'add-transaction' ? (
-          <AddTransactionPage 
-            onBack={() => setCurrentView('dashboard')} 
-            onAdd={handleAddTransaction} 
-          />
+          <AddTransactionPage onBack={() => setCurrentView('dashboard')} onAdd={handleAddTransaction} />
         ) : (
-          <div className="p-4 md:p-12 max-w-7xl mx-auto w-full animate-in fade-in duration-700">
+          <div className="p-6 md:p-16 max-w-7xl mx-auto w-full">
             {connectionError && (
-              <div className="mb-8 p-6 bg-rose-50 border-2 border-rose-200 rounded-3xl text-rose-900 shadow-xl flex items-start gap-4">
-                <AlertTriangle className="w-8 h-8 flex-shrink-0" />
-                <div>
-                  <p className="font-black text-lg">Erro de Sincronização</p>
-                  <p className="font-medium text-sm opacity-80">{connectionError}</p>
-                </div>
+              <div className="mb-10 p-6 bg-rose-50 border border-rose-100 rounded-[32px] text-rose-600 flex items-center gap-4 animate-in fade-in">
+                <AlertTriangle className="w-6 h-6" />
+                <p className="font-black text-sm uppercase tracking-widest">{connectionError}</p>
               </div>
             )}
 
-            <header className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
+            <header className="flex flex-col lg:flex-row lg:items-end justify-between gap-8 mb-16">
               <div>
-                <h1 className="text-5xl font-black text-slate-900 tracking-tighter mb-2">Seu Patrimônio</h1>
-                <p className="text-slate-400 text-lg font-bold italic">Gestão profissional para suas finanças pessoais.</p>
+                <h2 className="text-5xl font-black tracking-tighter mb-4 text-slate-900">Seu Fluxo.</h2>
+                <div className="flex items-center gap-4">
+                  <span className="flex items-center gap-2 px-4 py-1.5 bg-emerald-100 text-emerald-700 rounded-full text-[10px] font-black uppercase tracking-widest">
+                    <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div>
+                    Sincronizado
+                  </span>
+                </div>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex gap-4">
                 <button
                   onClick={() => fetchTransactions(true)}
                   disabled={isSyncing}
-                  className="p-4 text-slate-700 bg-white border border-slate-200 rounded-2xl transition-all shadow-sm flex items-center gap-2 px-8 font-black text-xs uppercase tracking-widest"
+                  className="p-5 text-slate-700 bg-white border border-slate-200 rounded-2xl hover:bg-slate-50 transition-all shadow-sm flex items-center gap-3 font-black text-[10px] uppercase tracking-widest"
                 >
                   <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
                   {isSyncing ? 'Sincronizando' : 'Sincronizar'}
                 </button>
                 <button 
                   onClick={() => setCurrentView('add-transaction')}
-                  className="flex items-center gap-3 bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-2xl transition-all shadow-2xl shadow-blue-200 font-black text-xs uppercase tracking-[0.2em]"
+                  className="flex items-center gap-4 bg-slate-900 text-white px-10 py-5 rounded-2xl hover:scale-[1.02] transition-all shadow-2xl font-black text-[10px] uppercase tracking-[0.2em]"
                 >
                   <PlusCircle className="w-5 h-5" />
-                  Novo Registro
+                  Novo Lançamento
                 </button>
               </div>
             </header>
 
             {loading ? (
-              <div className="flex flex-col items-center justify-center py-40 text-slate-400">
-                <Loader2 className="w-16 h-16 animate-spin mb-6 text-blue-600" />
-                <p className="font-black text-sm uppercase tracking-widest">Recuperando registros seguros...</p>
+              <div className="flex flex-col items-center justify-center py-40">
+                <Loader2 className="w-16 h-16 animate-spin text-blue-600 mb-6" />
+                <p className="font-black text-xs text-slate-400 uppercase tracking-[0.3em]">Preparando sua visão...</p>
               </div>
             ) : (
-              <div className="space-y-12">
-                {/* Stats Section */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                  <StatsCard title="Disponível Agora" amount={stats.totalBalance} type="balance" />
-                  <StatsCard title="Total em Entradas" amount={stats.totalIncome} type="income" />
-                  <StatsCard title="Total em Saídas" amount={stats.totalExpenses} type="expense" />
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+                {/* Column: Left & Middle (Main Data) */}
+                <div className="lg:col-span-2 space-y-12">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                    <StatsCard title="Saldo Consolidado" amount={stats.totalBalance} type="balance" />
+                    <StatsCard title="Total Entradas" amount={stats.totalIncome} type="income" />
+                    <StatsCard title="Total Saídas" amount={stats.totalExpenses} type="expense" />
+                  </div>
+                  
+                  <div className="bg-white p-2 rounded-[40px] shadow-sm border border-slate-100 overflow-hidden">
+                    <VisualCharts transactions={transactions} />
+                  </div>
+                  
+                  <div className="w-full">
+                    <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.3em] mb-8 ml-2">Movimentações Recentes</h3>
+                    <TransactionList transactions={transactions} onDelete={handleDeleteTransaction} />
+                  </div>
                 </div>
 
-                {transactions.length === 0 ? (
-                  <div className="bg-white rounded-[60px] p-24 border-4 border-dashed border-slate-100 text-center">
-                    <Database className="w-16 h-16 text-blue-600 mx-auto mb-8" />
-                    <h2 className="text-4xl font-black text-slate-900 mb-4 tracking-tighter uppercase">Nenhum Registro Ainda</h2>
-                    <p className="text-slate-500 max-w-md mx-auto mb-12 text-xl font-bold italic">
-                      Seu banco de dados privado está pronto. Comece a registrar suas transações para gerar estatísticas.
-                    </p>
-                    <button 
-                      onClick={() => setCurrentView('add-transaction')}
-                      className="flex items-center gap-4 mx-auto bg-blue-600 text-white px-12 py-6 rounded-3xl font-black text-xl hover:scale-105 transition-all shadow-2xl shadow-blue-200 uppercase tracking-widest"
-                    >
-                      <PlusCircle className="w-7 h-7" />
-                      Criar Primeiro Registro
-                    </button>
-                  </div>
-                ) : (
-                  <div className="space-y-12">
-                    {/* Visual Analytics */}
-                    <VisualCharts transactions={transactions} />
+                {/* Column: Right (Insights & Tips) */}
+                <div className="space-y-8">
+                  <div className="sticky top-16 space-y-8">
+                    <AIInsightsSection transactions={transactions} />
+                    
+                    <div className="bg-white border border-slate-100 rounded-[32px] shadow-sm overflow-hidden group">
+                      <div className="p-8">
+                        <div className="flex items-center gap-3 mb-4">
+                          <div className="bg-amber-100 p-2 rounded-xl group-hover:rotate-12 transition-transform">
+                            <Sparkles className="w-5 h-5 text-amber-600" />
+                          </div>
+                          <h4 className="font-black text-xs uppercase tracking-widest text-slate-900">Educação Financeira</h4>
+                        </div>
+                        <p className="text-slate-500 text-sm font-medium leading-relaxed italic">
+                          "O controle rigoroso de pequenas despesas é o segredo para grandes economias a longo prazo."
+                        </p>
+                      </div>
+                      <div className="h-2 bg-gradient-to-r from-amber-200 to-amber-500"></div>
+                    </div>
 
-                    {/* Transaction History - Now taking full width for better legibility */}
-                    <div className="w-full">
-                      <TransactionList 
-                        transactions={transactions} 
-                        onDelete={handleDeleteTransaction} 
-                      />
+                    <div className="bg-slate-900 text-white p-8 rounded-[32px] shadow-2xl relative overflow-hidden group">
+                      <Database className="absolute -right-4 -bottom-4 w-32 h-32 text-white/5 group-hover:scale-110 transition-transform duration-700" />
+                      <h4 className="font-black text-lg mb-4 tracking-tighter">Backup Automático</h4>
+                      <p className="text-slate-400 text-sm font-bold mb-6">Seus dados estão protegidos por criptografia ponta a ponta no banco Postgres.</p>
+                      <div className="flex items-center gap-2 text-emerald-400 text-[10px] font-black uppercase tracking-widest">
+                        <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
+                        Servidor Online
+                      </div>
                     </div>
                   </div>
-                )}
+                </div>
               </div>
             )}
           </div>
