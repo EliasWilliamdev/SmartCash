@@ -1,0 +1,5 @@
+{
+  "name": "Smart Expense Tracker",
+  "description": "A modern, AI-powered personal finance dashboard with real-time expense tracking, category breakdown, and intelligent financial insights using Gemini.",
+  "requestFramePermissions": []
+}
